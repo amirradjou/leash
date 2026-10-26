@@ -1,3 +1,5 @@
+# Foundry installs to ~/.foundry/bin, which is not always on PATH.
+export PATH := $(PATH):$(HOME)/.foundry/bin
 FORGE ?= forge
 
 .PHONY: build test lint fmt
