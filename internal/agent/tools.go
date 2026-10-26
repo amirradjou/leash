@@ -233,6 +233,9 @@ func (e *Env) requestApproval(ctx context.Context, in json.RawMessage) (string, 
 	if err != nil {
 		return err.Error(), true, nil
 	}
+	if !t.IsETH() && t.Address != e.W.USDC.Address {
+		return "only ETH and USDC payments can be approved", true, nil
+	}
 	ok, note := e.Approver.Approve(ctx, ApprovalRequest{Token: t, To: to, Amount: amount, Reason: req.Reason})
 	if !ok {
 		return "the owner declined: " + note, true, nil

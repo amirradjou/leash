@@ -16,6 +16,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -146,12 +147,18 @@ type terminalApprover struct {
 }
 
 func (a *terminalApprover) Approve(_ context.Context, req agent.ApprovalRequest) (bool, string) {
-	to := req.To.Hex()
+	// Everything the agent or a token contract wrote is quoted, so it cannot redraw this prompt with newlines or
+	// terminal escapes. The amount, token contract and recipient come from the request the passkey will sign.
+	recipient := "NOT in the address book"
 	if name, ok := a.w.ContactName(req.To); ok {
-		to = name + " (" + to + ")"
+		recipient = strconv.Quote(name)
 	}
-	fmt.Fprintf(a.out, "\nThe agent asks to send %s %s to %s.\nReason: %s\nApprove with passkey? [y/N] ",
-		world.Format(req.Token, req.Amount), req.Token.Symbol, to, req.Reason)
+	token := "ETH"
+	if !req.Token.IsETH() {
+		token = fmt.Sprintf("%s (token contract %s)", strconv.Quote(req.Token.Symbol), req.Token.Address.Hex())
+	}
+	fmt.Fprintf(a.out, "\nPasskey approval requested\n  send:   %s %s\n  to:     %s, %s\n  reason (written by the agent, unverified): %s\nApprove? [y/N] ",
+		world.Format(req.Token, req.Amount), token, req.To.Hex(), recipient, strconv.Quote(req.Reason))
 	line, _ := a.in.ReadString('\n')
 	if strings.EqualFold(strings.TrimSpace(line), "y") {
 		return true, ""
