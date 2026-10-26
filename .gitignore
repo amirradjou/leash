@@ -33,3 +33,4 @@ htmlcov/
 # Claude Code project files: local only, never committed
 .claude/
 CLAUDE.md
+bin/
