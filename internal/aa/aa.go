@@ -106,6 +106,8 @@ type Result struct {
 	// Revert is the account's revert when Success is false.
 	Revert chain.Revert
 	Logs   []*types.Log
+	// GasUsed by the whole handleOps transaction, validation and execution included.
+	GasUsed uint64
 }
 
 // Submit runs handleOps for one operation. It dry-runs first, so a validation failure returns *ValidationError
@@ -127,7 +129,7 @@ func (b *Bundler) Submit(ctx context.Context, op *UserOp) (*Result, error) {
 	if err != nil {
 		return nil, fmt.Errorf("handleOps: %w", err)
 	}
-	res := &Result{TxHash: receipt.TxHash, Logs: receipt.Logs}
+	res := &Result{TxHash: receipt.TxHash, Logs: receipt.Logs, GasUsed: receipt.GasUsed}
 	opEvent, revertEvent := b.ABI.Events["UserOperationEvent"], b.ABI.Events["UserOperationRevertReason"]
 	for _, l := range receipt.Logs {
 		if l.Address != b.EntryPoint || len(l.Topics) == 0 {

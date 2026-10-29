@@ -178,3 +178,39 @@ func TestUnguardedWalletHasNoPolicy(t *testing.T) {
 		t.Fatalf("attacker has %s USDC, want 2000", got)
 	}
 }
+
+// TestGasPerOperation logs what one USDC transfer costs through each path, for the README. Each path runs twice and
+// the second is reported, so first-write storage costs (the session's first spend in a period) are left out.
+func TestGasPerOperation(t *testing.T) {
+	w := newWorld(t)
+	ctx := context.Background()
+	alice, bob := w.Contacts[0].Address, w.Contacts[1].Address
+	paths := []struct {
+		name     string
+		wallet   *Wallet
+		to       common.Address
+		amount   string
+		escalate bool
+	}{
+		{"owner (execute)", &Wallet{W: w, Mode: Unguarded}, alice, "10", false},
+		{"session key", &Wallet{W: w, Mode: Leashed}, alice, "10", false},
+		{"session key + passkey", &Wallet{W: w, Mode: Leashed}, bob, "200", true},
+	}
+	gas := make([]uint64, len(paths))
+	for i, p := range paths {
+		for range 2 {
+			out, err := p.wallet.Execute(ctx, []Call{transferCall(t, w, w.USDC, p.to, p.amount)}, p.escalate)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !out.Executed {
+				t.Fatalf("%s: blocked: %s", p.name, out.Blocked)
+			}
+			gas[i] = out.GasUsed
+		}
+		t.Logf("%-22s %7d gas per handleOps", p.name, gas[i])
+	}
+	if !(gas[0] < gas[1] && gas[1] < gas[2]) {
+		t.Fatalf("expected owner < session < passkey, got %v", gas)
+	}
+}

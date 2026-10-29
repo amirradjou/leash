@@ -37,6 +37,8 @@ type Call struct {
 type Outcome struct {
 	Executed bool
 	TxHash   common.Hash
+	// GasUsed by the handleOps transaction; zero when the operation never reached the chain.
+	GasUsed uint64
 	// Blocked is set when the policy (or the EntryPoint) refused the operation, in words the agent can act on.
 	Blocked string
 	// Reason is the raw revert, for logs.
@@ -109,9 +111,9 @@ func (wl *Wallet) Execute(ctx context.Context, calls []Call, escalate bool) (*Ou
 		return nil, err
 	}
 	if !res.Success {
-		return &Outcome{TxHash: res.TxHash, Blocked: w.Explain(res.Revert), Reason: res.Revert.String()}, nil
+		return &Outcome{TxHash: res.TxHash, GasUsed: res.GasUsed, Blocked: w.Explain(res.Revert), Reason: res.Revert.String()}, nil
 	}
-	return &Outcome{Executed: true, TxHash: res.TxHash}, nil
+	return &Outcome{Executed: true, TxHash: res.TxHash, GasUsed: res.GasUsed}, nil
 }
 
 var sessionSignatureArgs = func() abi.Arguments {
