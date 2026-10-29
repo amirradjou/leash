@@ -23,3 +23,14 @@ jobs:
         run: make lint
       - name: Test
         run: make test
+
+  mutation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Invariants catch every seeded bug
+        run: make mutation
