@@ -79,8 +79,8 @@ The policy costs about 45k gas per operation on both forks. A passkey co-signatu
 P-256 is verified in Solidity (OpenZeppelin's `P256`), and about 18.5k on osaka, where the same code finds the
 EIP-7951 precompile and uses it instead; the contracts are the same bytecode on both forks. On prague the Solidity
 verification costs more or less depending on the passkey signature, which is why that range is wide. The other ranges
-move in steps of 12 gas, the difference between a zero and a non-zero calldata byte, because every operation's
-signature is different.
+move in steps of 12 gas, the difference between a zero and a non-zero calldata byte, because part of the calldata,
+such as the signatures, differs from one operation to the next.
 
 ## Assurance
 
