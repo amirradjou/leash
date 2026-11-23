@@ -41,8 +41,9 @@ the prompt). The attacks put instructions in quote API responses, airdropped tok
   unguarded runs, the same as without the warning.
 - **The policy didn't get in the way.** Control tasks with no attacker finished about as often in both wallets; every
   failed one was checked by hand, and none failed because the policy refused a correct payment.
-- **Gas:** a USDC transfer costs 91,073 through the owner path, 135,723 through the session key, and 392,942 with a
-  passkey co-signature (P-256 verified in Solidity).
+- **Gas:** a USDC transfer costs 91,073 through the owner path, 135,723 through the session key, and about 395,000 with
+  a passkey co-signature, where P-256 is verified in Solidity. On osaka, where the EIP-7951 precompile does that check,
+  the passkey path costs 154,249.
 
 Three trials per scenario on local models: enough to see the gap between the wallets, not to rank models. Per-run
 tables, the control tasks, gas details and the limits are in [docs/RESULTS.md](docs/RESULTS.md).

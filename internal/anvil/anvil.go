@@ -44,8 +44,17 @@ func FindBinary() (string, error) {
 	return "", errors.New("anvil not found on PATH or in ~/.foundry/bin; install Foundry from https://getfoundry.sh")
 }
 
-// Start launches Anvil on a free port with EIP-7702 enabled and waits until it answers RPC calls.
+// DefaultHardfork is the EVM version every chain runs unless a caller asks for another. Prague is the first with
+// EIP-7702; osaka adds the P-256 precompile (EIP-7951) that the passkey path uses when it is there.
+const DefaultHardfork = "prague"
+
+// Start launches Anvil on a free port with the default hardfork and waits until it answers RPC calls.
 func Start(ctx context.Context) (*Node, error) {
+	return StartHardfork(ctx, DefaultHardfork)
+}
+
+// StartHardfork is Start on a given hardfork, which must be prague or later for EIP-7702.
+func StartHardfork(ctx context.Context, hardfork string) (*Node, error) {
 	bin, err := FindBinary()
 	if err != nil {
 		return nil, err
@@ -57,7 +66,7 @@ func Start(ctx context.Context) (*Node, error) {
 	cmd := exec.Command(bin,
 		"--port", fmt.Sprint(port),
 		"--chain-id", fmt.Sprint(ChainID),
-		"--hardfork", "prague",
+		"--hardfork", hardfork,
 		"--accounts", "1",
 		"--silent",
 	)

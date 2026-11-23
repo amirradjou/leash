@@ -2,7 +2,10 @@ package world
 
 import (
 	"context"
+	"flag"
 	"math/big"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +19,12 @@ import (
 // newWorld starts Anvil and deploys a world, or skips when Anvil or the forge artifacts are missing.
 func newWorld(t *testing.T) *World {
 	t.Helper()
+	return newWorldOn(t, anvil.DefaultHardfork)
+}
+
+// newWorldOn is newWorld on a given hardfork.
+func newWorldOn(t *testing.T, hardfork string) *World {
+	t.Helper()
 	if _, err := anvil.FindBinary(); err != nil {
 		t.Skip(err)
 	}
@@ -25,7 +34,7 @@ func newWorld(t *testing.T) *World {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	node, err := anvil.Start(ctx)
+	node, err := anvil.StartHardfork(ctx, hardfork)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,11 +188,40 @@ func TestUnguardedWalletHasNoPolicy(t *testing.T) {
 	}
 }
 
-// TestGasPerOperation logs what one USDC transfer costs through each path, for the README. Each path runs twice and
-// the second is reported, so first-write storage costs (the session's first spend in a period) are left out.
+// TestGasPerOperation logs the gas table in docs/RESULTS.md: what one USDC transfer costs through each path, on
+// prague and on osaka. On osaka the passkey's P-256 check runs in the EIP-7951 precompile instead of Solidity, so that
+// path must be cheaper there.
 func TestGasPerOperation(t *testing.T) {
-	w := newWorld(t)
+	byFork := map[string][][]uint64{}
+	for _, hf := range []string{"prague", "osaka"} {
+		t.Run(hf, func(t *testing.T) { byFork[hf] = gasPerPath(t, newWorldOn(t, hf)) })
+	}
+	p, o := byFork["prague"], byFork["osaka"]
+	if len(p) != 3 || len(o) != 3 {
+		return // a subtest failed or was skipped
+	}
+	if pragueKey, osakaKey := p[2], o[2]; osakaKey[len(osakaKey)-1] >= pragueKey[0] {
+		t.Errorf("passkey path should be cheaper with the P-256 precompile: prague %v, osaka %v", pragueKey, osakaKey)
+	}
+}
+
+// gasRuns is how many operations are measured per path. Gas varies between operations (each one's signatures differ,
+// and on prague the Solidity P-256 cost depends on the passkey signature), so the table gives median and range. The
+// gas table in docs/RESULTS.md is: go test -run TestGasPerOperation -v ./internal/world -gas-runs=25
+var gasRuns = flag.Int("gas-runs", 5, "operations measured per path in TestGasPerOperation")
+
+// gasPerPath sends one warm-up transfer through each path, so a session's first write in a period is left out, then
+// gasRuns more, and returns each path's gas sorted. Owner and session send 1 USDC to Alice so many runs stay under her
+// daily limit; the passkey path sends Bob 200, over his.
+func gasPerPath(t *testing.T, w *World) [][]uint64 {
+	t.Helper()
 	ctx := context.Background()
+	if *gasRuns < 1 {
+		t.Fatalf("-gas-runs must be at least 1, got %d", *gasRuns)
+	}
+	if err := w.Mint(ctx, w.USDC, w.Account, w.MustParse(w.USDC, strconv.Itoa((*gasRuns+1)*202))); err != nil {
+		t.Fatal(err)
+	}
 	alice, bob := w.Contacts[0].Address, w.Contacts[1].Address
 	paths := []struct {
 		name     string
@@ -192,13 +230,13 @@ func TestGasPerOperation(t *testing.T) {
 		amount   string
 		escalate bool
 	}{
-		{"owner (execute)", &Wallet{W: w, Mode: Unguarded}, alice, "10", false},
-		{"session key", &Wallet{W: w, Mode: Leashed}, alice, "10", false},
+		{"owner (execute)", &Wallet{W: w, Mode: Unguarded}, alice, "1", false},
+		{"session key", &Wallet{W: w, Mode: Leashed}, alice, "1", false},
 		{"session key + passkey", &Wallet{W: w, Mode: Leashed}, bob, "200", true},
 	}
-	gas := make([]uint64, len(paths))
+	gas := make([][]uint64, len(paths))
 	for i, p := range paths {
-		for range 2 {
+		for run := range *gasRuns + 1 {
 			out, err := p.wallet.Execute(ctx, []Call{transferCall(t, w, w.USDC, p.to, p.amount)}, p.escalate)
 			if err != nil {
 				t.Fatal(err)
@@ -206,11 +244,16 @@ func TestGasPerOperation(t *testing.T) {
 			if !out.Executed {
 				t.Fatalf("%s: blocked: %s", p.name, out.Blocked)
 			}
-			gas[i] = out.GasUsed
+			if run > 0 {
+				gas[i] = append(gas[i], out.GasUsed)
+			}
 		}
-		t.Logf("%-22s %7d gas per handleOps", p.name, gas[i])
+		slices.Sort(gas[i])
+		g := gas[i]
+		t.Logf("%-22s median %7d  range %d-%d  (%d ops)", p.name, g[len(g)/2], g[0], g[len(g)-1], len(g))
 	}
-	if !(gas[0] < gas[1] && gas[1] < gas[2]) {
+	if !(gas[0][len(gas[0])-1] < gas[1][0] && gas[1][len(gas[1])-1] < gas[2][0]) {
 		t.Fatalf("expected owner < session < passkey, got %v", gas)
 	}
+	return gas
 }
