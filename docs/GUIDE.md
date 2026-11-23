@@ -103,7 +103,7 @@ make test       # forge build, go test -race (Anvil integration tests), forge te
 make test-deep  # 10k fuzz runs per test, 1024 x 128 invariant sequences
 make mutation   # every seeded bug in LeashAccount must be caught by the invariants
 make lint       # go vet, gofmt, forge fmt --check
-go test -run TestGasPerOperation -v ./internal/world   # the gas table in RESULTS.md
+go test -run TestGasPerOperation -v ./internal/world -gas-runs=25   # the gas table in RESULTS.md (prague, osaka)
 ```
 
 ## Layout
@@ -114,4 +114,4 @@ go test -run TestGasPerOperation -v ./internal/world   # the gas table in RESULT
 - `internal/world`: deploys the EntryPoint, the account, USDC and the swap, and wires the 7702 delegation.
 - `internal/agent`, `internal/eval`: the tool-use loop, the scenarios and the scoring.
 - `cmd/leash`: the `eval`, `demo` and `version` commands.
-- `results/`: raw eval records and summaries.
+- `results/`: raw eval records and summaries, and the gas measurement.

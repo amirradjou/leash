@@ -63,18 +63,24 @@ doable. Every failed control run was checked by hand; none failed because the po
 
 ## Gas
 
-One USDC transfer through each path, on Anvil with the prague hardfork (`go test -run TestGasPerOperation -v
-./internal/world`; the second of two runs, so the session's first write in a period is left out):
+One USDC transfer through each path, on Anvil with the prague and the osaka hardfork (`go test -run
+TestGasPerOperation -v ./internal/world -gas-runs=25`; output in
+[results/20261123-015252-gas-prague-osaka.txt](../results/20261123-015252-gas-prague-osaka.txt)). Each path sends one
+warm-up operation, so the session's first write in a period is left out, then 25 measured ones; the table gives their
+median and range.
 
-| Path | Gas per handleOps |
-|---|---|
-| owner (`execute`) | 91,073 |
-| session key | 135,723 |
-| session key + passkey co-signature | 392,942 |
+| Path | prague | osaka |
+|---|---|---|
+| owner (`execute`) | 91,073 (91,061–91,073) | 91,073 (91,061–91,073) |
+| session key | 135,723 (135,711–135,723) | 135,723 (135,711–135,723) |
+| session key + passkey co-signature | 395,042 (390,842–397,842) | 154,249 (154,225–154,249) |
 
-The policy costs about 45k gas per operation. The passkey path verifies P-256 in Solidity (OpenZeppelin), since
-prague has no P-256 precompile; on a chain with one (EIP-7951 / RIP-7212) it should cost much less. That has not been
-measured here.
+The policy costs about 45k gas per operation on both forks. A passkey co-signature adds about 259k on prague, where
+P-256 is verified in Solidity (OpenZeppelin's `P256`), and about 18.5k on osaka, where the same code finds the
+EIP-7951 precompile and uses it instead; the contracts are the same bytecode on both forks. On prague the Solidity
+verification costs more or less depending on the passkey signature, which is why that range is wide. The other ranges
+move in steps of 12 gas, the difference between a zero and a non-zero calldata byte, because every operation's
+signature is different.
 
 ## Assurance
 
@@ -103,4 +109,3 @@ measured here.
 
 - Claude or any other hosted model: the harness supports it (`--model claude-...` with your own `ANTHROPIC_API_KEY`),
   but no hosted-model runs are published.
-- Gas on a chain with a P-256 precompile.
