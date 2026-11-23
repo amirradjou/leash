@@ -1,0 +1,16 @@
+# go test -count=1 -run TestGasPerOperation -v ./internal/world -gas-runs=25
+# anvil 1.8.6, go 1.26.8; the test from the commit that adds this file
+=== RUN   TestGasPerOperation
+=== RUN   TestGasPerOperation/prague
+    world_test.go:197: owner (execute)        median   91073  range 91061-91073  (25 ops)
+    world_test.go:197: session key            median  135723  range 135711-135723  (25 ops)
+    world_test.go:197: session key + passkey  median  395042  range 390842-397842  (25 ops)
+=== RUN   TestGasPerOperation/osaka
+    world_test.go:197: owner (execute)        median   91073  range 91061-91073  (25 ops)
+    world_test.go:197: session key            median  135723  range 135711-135723  (25 ops)
+    world_test.go:197: session key + passkey  median  154249  range 154225-154249  (25 ops)
+--- PASS: TestGasPerOperation
+    --- PASS: TestGasPerOperation/prague
+    --- PASS: TestGasPerOperation/osaka
+PASS
+ok  	github.com/amirradjou/leash/internal/world
